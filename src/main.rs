@@ -47,19 +47,34 @@ fn main() {
 }
 
 struct MyGame {
+    // Graphics.
+    star_mesh: graphics::Mesh,
+
+    // World.
     angle: f32,
     angle_delta: f32,
     stars: VecDeque<Star>,
     last_star: Instant,
     now: Instant,
     start: Instant,
+
+    // Input.
     running: bool,
+    draw_mode: DrawMode,
 }
 
 impl MyGame {
-    fn new(_ctx: &mut Context) -> GameResult<Self> {
+    fn new(ctx: &mut Context) -> GameResult<Self> {
         let now = Instant::now();
         Ok(MyGame {
+            star_mesh: graphics::Mesh::new_circle(
+                ctx,
+                graphics::DrawMode::fill(),
+                na::Point2::new(0.0, 0.0),
+                /* radius */ 2.0,
+                /* tolerance */ 0.1,
+                graphics::WHITE,
+            )?,
             angle: 0.0,
             angle_delta: 0.0,
             stars: VecDeque::new(),
@@ -67,6 +82,7 @@ impl MyGame {
             now: now,
             start: now,
             running: true,
+            draw_mode: DrawMode::Points,
         })
     }
 
@@ -95,16 +111,20 @@ impl MyGame {
 
     fn draw_field(&self, ctx: &mut Context) -> GameResult<()> {
         for (ix, star) in self.stars.iter().enumerate() {
-            /*
-            graphics::draw(ctx,
-                &self.star_mesh,
-                graphics::DrawParam::new()
-                    .color(star.color)
-                    .dest(star.pos),
-            )?;
-            */
-            if ix >= self.stars.len()-1 { continue }
-            self.draw_nearest_line(ctx, star, ix)?;
+            match self.draw_mode {
+                DrawMode::Points => {
+                    graphics::draw(ctx,
+                        &self.star_mesh,
+                        graphics::DrawParam::new()
+                            .color(star.color)
+                            .dest(star.pos),
+                    )?;
+                }
+                DrawMode::Lines => {
+                    if ix >= self.stars.len()-1 { continue }
+                    self.draw_nearest_line(ctx, star, ix)?;
+                }
+            }
         }
         Ok(())
     }
@@ -179,6 +199,10 @@ impl event::EventHandler for MyGame {
         use event::KeyCode::*;
         match keycode {
             Space => self.running = !self.running,
+            P => self.draw_mode = match self.draw_mode {
+                DrawMode::Points => DrawMode::Lines,
+                DrawMode::Lines => DrawMode::Points,
+            },
             _ => (),
         }
     }
@@ -210,3 +234,5 @@ impl Star {
         self.pos += self.delta * TICK_SCALE;
     }
 }
+
+enum DrawMode { Points, Lines }
