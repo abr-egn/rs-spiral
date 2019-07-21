@@ -14,6 +14,7 @@ const TICK_SCALE: f32 = 1.0 / (TARGET_FPS as f32);
 const TICK_DURATION: Duration = Duration::from_nanos(1_000_000_000 / (TARGET_FPS as u64));
 const STAR_DELAY: Duration = Duration::from_millis(100);
 const STAR_SPEED: f32 = 10.0;
+const STAR_ACCEL: f32 = 1.0;
 const ANGLE_ACCEL: f32 = 0.01;
 const R_SCALE: f32 = 0.2;
 const G_SCALE: f32 = 0.3;
@@ -250,6 +251,7 @@ impl Star {
 
     fn tick(&mut self) {
         self.pos += self.delta * TICK_SCALE;
+        self.delta *= STAR_ACCEL;
     }
 }
 
