@@ -18,6 +18,7 @@ const ANGLE_ACCEL: f32 = 0.01;
 const R_SCALE: f32 = 0.2;
 const G_SCALE: f32 = 0.3;
 const B_SCALE: f32 = 0.5;
+const SEGMENT_LEN: f32 = 3.0;
 
 fn main() {
     let (ctx, events) = &mut ContextBuilder::new("spiral", "Abraham Egnor")
@@ -113,12 +114,14 @@ impl event::EventHandler for MyGame {
         graphics::clear(ctx, graphics::BLACK);
         let stars_len = self.stars.len();
         for (ix, star) in self.stars.iter().enumerate() {
+            /*
             graphics::draw(ctx,
                 &self.star_mesh,
                 graphics::DrawParam::new()
                     .color(star.color)
                     .dest(star.pos),
             )?;
+            */
             if ix >= stars_len-1 { continue }
             let mut nearest = self.stars.back().unwrap();
             let mut nearest_dist_sqr = star.distance_sqr_to(nearest);
@@ -130,12 +133,39 @@ impl event::EventHandler for MyGame {
                     nearest_dist_sqr = other_dist_sqr;
                 }
             }
-            let line = graphics::Mesh::new_line(ctx,
-                &[star.pos, nearest.pos],
-                /* width */ 2.0,
-                star.color,
-            ).unwrap();
-            graphics::draw(ctx, &line, graphics::DrawParam::default())?;
+            let mut pos = star.pos;
+            let pos_vec = nearest.pos - star.pos;
+            let segments_f32 = (pos_vec.norm() / SEGMENT_LEN).ceil();
+            let segments = segments_f32 as i32;
+            let pos_delta = pos_vec / segments_f32;
+            let mut color = star.color;
+            let color_delta = graphics::Color {
+                r: (nearest.color.r - star.color.r) / segments_f32,
+                g: (nearest.color.g - star.color.g) / segments_f32,
+                b: (nearest.color.b - star.color.b) / segments_f32,
+                a: 1.0,
+            };
+            for _ in 0..segments {
+                let next = pos + pos_delta;
+                let line = graphics::Mesh::new_polyline(ctx,
+                    graphics::DrawMode::Stroke(
+                        graphics::StrokeOptions::default()
+                            .with_start_cap(graphics::LineCap::Round)
+                            .with_end_cap(graphics::LineCap::Round)
+                            .with_line_width(4.0)
+                    ),
+                    &[pos, next],
+                    color,
+                ).unwrap();
+                graphics::draw(ctx, &line, graphics::DrawParam::default())?;
+                pos = next;
+                color = graphics::Color {
+                    r: color.r + color_delta.r,
+                    g: color.g + color_delta.g,
+                    b: color.b + color_delta.b,
+                    a: 1.0,
+                };
+            }
         }
         graphics::present(ctx)?;
         Ok(())
