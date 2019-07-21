@@ -15,6 +15,7 @@ const TICK_DURATION: Duration = Duration::from_nanos(1_000_000_000 / (TARGET_FPS
 const STAR_DELAY: Duration = Duration::from_millis(100);
 const STAR_SPEED: f32 = 10.0;
 const STAR_ACCEL: f32 = 1.0;
+const STAR_TIME_COLOR_SCALE: f32 = -3.0;
 const ANGLE_ACCEL: f32 = 0.01;
 const R_SCALE: f32 = 0.2;
 const G_SCALE: f32 = 0.3;
@@ -91,12 +92,15 @@ impl MyGame {
         })
     }
 
+    fn now_f32(&self) -> f32 {
+        timer::duration_to_f64(self.now.duration_since(self.start)) as f32
+    }
+
     fn tick(&mut self, screen: &graphics::Rect) {
         self.now += TICK_DURATION;
         if self.now.duration_since(self.last_star) >= STAR_DELAY {
             self.last_star = self.now;
-            let now_f32: f32 = timer::duration_to_f64(self.now.duration_since(self.start)) as f32;
-            self.stars.push_back(Star::spawn(self.angle, now_f32));
+            self.stars.push_back(Star::spawn(self.angle, self.now_f32()));
         }
         while self.stars.front().map_or(false, |s| !screen.contains(s.pos)) {
             self.stars.pop_front();
@@ -121,7 +125,7 @@ impl MyGame {
                     graphics::draw(ctx,
                         &self.star_mesh,
                         graphics::DrawParam::new()
-                            .color(star.color)
+                            .color(star.color(self.now_f32()))
                             .dest(star.pos),
                     )?;
                 }
@@ -146,23 +150,24 @@ impl MyGame {
             draw_line(ctx, star.pos, others[1].pos, graphics::Color { r: 0.3, g: 0.3, b: 0.3, a: 1.0 })?;
         }
         if self.primary_nearest && others.len() > 0 {
-            draw_interp_line(ctx , star, others[0])?;
+            draw_interp_line(ctx , star, others[0], self.now_f32())?;
         }
         Ok(())
     }
 }
 
-fn draw_interp_line(ctx: &mut Context, star: &Star, nearest: &Star) -> GameResult<()> {
+fn draw_interp_line(ctx: &mut Context, star: &Star, nearest: &Star, now_f32: f32) -> GameResult<()> {
     let mut pos = star.pos;
     let pos_vec = nearest.pos - star.pos;
     let segments_f32 = (pos_vec.norm() / MAX_SEGMENT_LEN).ceil();
     let segments = segments_f32 as i32;
     let pos_delta = pos_vec / segments_f32;
-    let mut color = star.color;
+    let mut color = star.color(now_f32);
+    let nearest_color = nearest.color(now_f32);
     let color_delta = graphics::Color {
-        r: (nearest.color.r - star.color.r) / segments_f32,
-        g: (nearest.color.g - star.color.g) / segments_f32,
-        b: (nearest.color.b - star.color.b) / segments_f32,
+        r: (nearest_color.r - color.r) / segments_f32,
+        g: (nearest_color.g - color.g) / segments_f32,
+        b: (nearest_color.b - color.b) / segments_f32,
         a: 1.0,
     };
     for _ in 0..segments {
@@ -230,19 +235,24 @@ impl event::EventHandler for MyGame {
 struct Star {
     pos: na::Point2<f32>,
     delta: na::Vector2<f32>,
-    color: graphics::Color,
+    seed: f32,
 }
 
 impl Star {
     fn spawn(angle: f32, now: f32) -> Self {
-        let r = 0.5 + (0.5 * (now * R_SCALE).sin());
-        let g = 0.5 + (0.5 * (now * G_SCALE).sin());
-        let b = 0.5 + (0.5 * (now * B_SCALE).sin());
         Star {
             pos: na::Point2::new(0.0, 0.0),
             delta: na::Vector2::new(angle.cos(), angle.sin()) * STAR_SPEED,
-            color: graphics::Color::new(r, g, b, 1.0),
+            seed: now,
         }
+    }
+
+    fn color(&self, now: f32) -> graphics::Color {
+        let scaled_now = now * STAR_TIME_COLOR_SCALE;
+        let r = 0.5 + (0.5 * ((self.seed + scaled_now) * R_SCALE).sin());
+        let g = 0.5 + (0.5 * ((self.seed + scaled_now) * G_SCALE).sin());
+        let b = 0.5 + (0.5 * ((self.seed + scaled_now) * B_SCALE).sin());
+        graphics::Color::new(r, g, b, 1.0)
     }
 
     fn distance_sqr_to(&self, other: &Star) -> f32 {
