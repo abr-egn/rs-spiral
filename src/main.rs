@@ -82,7 +82,7 @@ impl MyGame {
             now: now,
             start: now,
             running: true,
-            draw_mode: DrawMode::Points,
+            draw_mode: DrawMode::Lines,
         })
     }
 
@@ -140,41 +140,46 @@ impl MyGame {
                 nearest_dist_sqr = other_dist_sqr;
             }
         }
-        let mut pos = star.pos;
-        let pos_vec = nearest.pos - star.pos;
-        let segments_f32 = (pos_vec.norm() / MAX_SEGMENT_LEN).ceil();
-        let segments = segments_f32 as i32;
-        let pos_delta = pos_vec / segments_f32;
-        let mut color = star.color;
-        let color_delta = graphics::Color {
-            r: (nearest.color.r - star.color.r) / segments_f32,
-            g: (nearest.color.g - star.color.g) / segments_f32,
-            b: (nearest.color.b - star.color.b) / segments_f32,
-            a: 1.0,
-        };
-        for _ in 0..segments {
-            let next = pos + pos_delta;
-            let line = graphics::Mesh::new_polyline(ctx,
-                graphics::DrawMode::Stroke(
-                    graphics::StrokeOptions::default()
-                        .with_start_cap(graphics::LineCap::Round)
-                        .with_end_cap(graphics::LineCap::Round)
-                        .with_line_width(4.0)
-                ),
-                &[pos, next],
-                color,
-            ).unwrap();
-            graphics::draw(ctx, &line, graphics::DrawParam::default())?;
-            pos = next;
-            color = graphics::Color {
-                r: color.r + color_delta.r,
-                g: color.g + color_delta.g,
-                b: color.b + color_delta.b,
-                a: 1.0,
-            };
-        }
+        draw_interp_line(ctx, star, nearest)?;
         Ok(())
     }
+}
+
+fn draw_interp_line(ctx: &mut Context, star: &Star, nearest: &Star) -> GameResult<()> {
+    let mut pos = star.pos;
+    let pos_vec = nearest.pos - star.pos;
+    let segments_f32 = (pos_vec.norm() / MAX_SEGMENT_LEN).ceil();
+    let segments = segments_f32 as i32;
+    let pos_delta = pos_vec / segments_f32;
+    let mut color = star.color;
+    let color_delta = graphics::Color {
+        r: (nearest.color.r - star.color.r) / segments_f32,
+        g: (nearest.color.g - star.color.g) / segments_f32,
+        b: (nearest.color.b - star.color.b) / segments_f32,
+        a: 1.0,
+    };
+    for _ in 0..segments {
+        let next = pos + pos_delta;
+        let line = graphics::Mesh::new_polyline(ctx,
+            graphics::DrawMode::Stroke(
+                graphics::StrokeOptions::default()
+                    .with_start_cap(graphics::LineCap::Round)
+                    .with_end_cap(graphics::LineCap::Round)
+                    .with_line_width(4.0)
+            ),
+            &[pos, next],
+            color,
+        ).unwrap();
+        graphics::draw(ctx, &line, graphics::DrawParam::default())?;
+        pos = next;
+        color = graphics::Color {
+            r: color.r + color_delta.r,
+            g: color.g + color_delta.g,
+            b: color.b + color_delta.b,
+            a: 1.0,
+        };
+    }
+    Ok(())
 }
 
 impl event::EventHandler for MyGame {
