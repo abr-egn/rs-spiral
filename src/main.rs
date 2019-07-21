@@ -61,6 +61,7 @@ struct MyGame {
     // Input.
     running: bool,
     draw_mode: DrawMode,
+    secondary_nearest: bool,
 }
 
 impl MyGame {
@@ -83,6 +84,7 @@ impl MyGame {
             start: now,
             running: true,
             draw_mode: DrawMode::Lines,
+            secondary_nearest: false,
         })
     }
 
@@ -130,17 +132,19 @@ impl MyGame {
     }
 
     fn draw_nearest_line(&self, ctx: &mut Context, star: &Star, ix: usize) -> GameResult<()> {
-        let mut nearest = self.stars.back().unwrap();
-        let mut nearest_dist_sqr = star.distance_sqr_to(nearest);
+        let mut others: Vec<&Star> = vec![];
         for other_ix in (ix+1)..self.stars.len() {
-            let other = &self.stars[other_ix];
-            let other_dist_sqr = star.distance_sqr_to(other);
-            if other_dist_sqr < nearest_dist_sqr {
-                nearest = other;
-                nearest_dist_sqr = other_dist_sqr;
-            }
+            others.push(&self.stars[other_ix]);
         }
-        draw_interp_line(ctx, star, nearest)?;
+        others.sort_by(|a, b|
+            star.distance_sqr_to(a).partial_cmp(&star.distance_sqr_to(b)).unwrap()
+        );
+        if self.secondary_nearest && others.len() > 1 {
+            draw_line(ctx, star.pos, others[1].pos, graphics::Color { r: 0.3, g: 0.3, b: 0.3, a: 1.0 })?;
+        }
+        if others.len() > 0 {
+            draw_interp_line(ctx , star, others[0])?;
+        }
         Ok(())
     }
 }
@@ -160,17 +164,7 @@ fn draw_interp_line(ctx: &mut Context, star: &Star, nearest: &Star) -> GameResul
     };
     for _ in 0..segments {
         let next = pos + pos_delta;
-        let line = graphics::Mesh::new_polyline(ctx,
-            graphics::DrawMode::Stroke(
-                graphics::StrokeOptions::default()
-                    .with_start_cap(graphics::LineCap::Round)
-                    .with_end_cap(graphics::LineCap::Round)
-                    .with_line_width(4.0)
-            ),
-            &[pos, next],
-            color,
-        ).unwrap();
-        graphics::draw(ctx, &line, graphics::DrawParam::default())?;
+        draw_line(ctx, pos, next, color)?;
         pos = next;
         color = graphics::Color {
             r: color.r + color_delta.r,
@@ -179,6 +173,21 @@ fn draw_interp_line(ctx: &mut Context, star: &Star, nearest: &Star) -> GameResul
             a: 1.0,
         };
     }
+    Ok(())
+}
+
+fn draw_line(ctx: &mut Context, start: na::Point2<f32>, end: na::Point2<f32>, color: graphics::Color) -> GameResult<()> {
+    let line = graphics::Mesh::new_polyline(ctx,
+        graphics::DrawMode::Stroke(
+            graphics::StrokeOptions::default()
+                .with_start_cap(graphics::LineCap::Round)
+                .with_end_cap(graphics::LineCap::Round)
+                .with_line_width(4.0)
+        ),
+        &[start, end],
+        color,
+    )?;
+    graphics::draw(ctx, &line, graphics::DrawParam::default())?;
     Ok(())
 }
 
@@ -208,6 +217,7 @@ impl event::EventHandler for MyGame {
                 DrawMode::Points => DrawMode::Lines,
                 DrawMode::Lines => DrawMode::Points,
             },
+            N => self.secondary_nearest = !self.secondary_nearest,
             _ => (),
         }
     }
