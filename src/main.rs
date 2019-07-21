@@ -61,6 +61,7 @@ struct MyGame {
     // Input.
     running: bool,
     draw_mode: DrawMode,
+    primary_nearest: bool,
     secondary_nearest: bool,
 }
 
@@ -84,6 +85,7 @@ impl MyGame {
             start: now,
             running: true,
             draw_mode: DrawMode::Lines,
+            primary_nearest: true,
             secondary_nearest: false,
         })
     }
@@ -142,7 +144,7 @@ impl MyGame {
         if self.secondary_nearest && others.len() > 1 {
             draw_line(ctx, star.pos, others[1].pos, graphics::Color { r: 0.3, g: 0.3, b: 0.3, a: 1.0 })?;
         }
-        if others.len() > 0 {
+        if self.primary_nearest && others.len() > 0 {
             draw_interp_line(ctx , star, others[0])?;
         }
         Ok(())
@@ -217,7 +219,8 @@ impl event::EventHandler for MyGame {
                 DrawMode::Points => DrawMode::Lines,
                 DrawMode::Lines => DrawMode::Points,
             },
-            N => self.secondary_nearest = !self.secondary_nearest,
+            N => self.primary_nearest = !self.primary_nearest,
+            S => self.secondary_nearest = !self.secondary_nearest,
             _ => (),
         }
     }
