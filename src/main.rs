@@ -18,7 +18,7 @@ const ANGLE_ACCEL: f32 = 0.01;
 const R_SCALE: f32 = 0.2;
 const G_SCALE: f32 = 0.3;
 const B_SCALE: f32 = 0.5;
-const SEGMENT_LEN: f32 = 3.0;
+const MAX_SEGMENT_LEN: f32 = 5.0;
 
 fn main() {
     let (ctx, events) = &mut ContextBuilder::new("spiral", "Abraham Egnor")
@@ -47,7 +47,6 @@ fn main() {
 }
 
 struct MyGame {
-    star_mesh: graphics::Mesh,
     angle: f32,
     angle_delta: f32,
     stars: VecDeque<Star>,
@@ -57,17 +56,9 @@ struct MyGame {
 }
 
 impl MyGame {
-    fn new(ctx: &mut Context) -> GameResult<Self> {
+    fn new(_ctx: &mut Context) -> GameResult<Self> {
         let now = Instant::now();
         Ok(MyGame {
-            star_mesh: graphics::Mesh::new_circle(
-                ctx,
-                graphics::DrawMode::fill(),
-                na::Point2::new(0.0, 0.0),
-                /* radius */ 2.0,
-                /* tolerance */ 0.1,
-                graphics::WHITE,
-            )?,
             angle: 0.0,
             angle_delta: 0.0,
             stars: VecDeque::new(),
@@ -135,7 +126,7 @@ impl event::EventHandler for MyGame {
             }
             let mut pos = star.pos;
             let pos_vec = nearest.pos - star.pos;
-            let segments_f32 = (pos_vec.norm() / SEGMENT_LEN).ceil();
+            let segments_f32 = (pos_vec.norm() / MAX_SEGMENT_LEN).ceil();
             let segments = segments_f32 as i32;
             let pos_delta = pos_vec / segments_f32;
             let mut color = star.color;
