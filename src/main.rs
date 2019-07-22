@@ -21,6 +21,7 @@ const R_SCALE: f32 = 0.2;
 const G_SCALE: f32 = 0.3;
 const B_SCALE: f32 = 0.5;
 const MAX_SEGMENT_LEN: f32 = 5.0;
+const MOUSE_SCALE: f32 = 5.0;
 
 fn main() {
     let (ctx, events) = &mut ContextBuilder::new("spiral", "Abraham Egnor")
@@ -65,6 +66,7 @@ struct MyGame {
     draw_mode: DrawMode,
     primary_nearest: bool,
     secondary_nearest: bool,
+    mouse: Option<na::Point2<f32>>,
 }
 
 impl MyGame {
@@ -89,6 +91,7 @@ impl MyGame {
             draw_mode: DrawMode::Lines,
             primary_nearest: true,
             secondary_nearest: false,
+            mouse: None,
         })
     }
 
@@ -115,6 +118,13 @@ impl MyGame {
         self.angle_delta += ANGLE_ACCEL * TICK_SCALE;
         if self.angle_delta > 2.0*PI {
             self.angle_delta -= 2.0*PI;
+        }
+
+        if let Some(mouse_point) = self.mouse {
+            for star in &mut self.stars {
+                let delta = MOUSE_SCALE / (mouse_point - star.pos).norm();
+                star.seed += delta;
+            }
         }
     }
 
@@ -229,6 +239,23 @@ impl event::EventHandler for MyGame {
             S => self.secondary_nearest = !self.secondary_nearest,
             _ => (),
         }
+    }
+
+    fn mouse_button_down_event(&mut self, ctx: &mut Context, button: event::MouseButton, x: f32, y: f32) {
+        if button != event::MouseButton::Left { return; }
+        let screen = graphics::screen_coordinates(ctx);
+        self.mouse = Some(na::Point2::new(x + screen.x, y + screen.y));
+    }
+
+    fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: event::MouseButton, _x: f32, _y: f32) {
+        if button != event::MouseButton::Left { return; }
+        self.mouse = None;
+    }
+
+    fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, _dx: f32, _dy: f32) {
+        if self.mouse.is_none() { return; }
+        let screen = graphics::screen_coordinates(ctx);
+        self.mouse = Some(na::Point2::new(x + screen.x, y + screen.y));
     }
 }
 
